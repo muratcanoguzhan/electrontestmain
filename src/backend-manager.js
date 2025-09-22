@@ -20,14 +20,23 @@ class BackendManager {
     console.log('Starting .NET backends with OS-assigned ports...');
     
     try {
-      // Start both backends in parallel
-      const [backend1Result, backend2Result] = await Promise.all([
-        this.startBackend('backend1', './backend1/Backend1.exe'),
-        this.startBackend('backend2', './backend2/Backend2.exe')
-      ]);
+      // Start backend2 first (since backend1 needs its port)
+      console.log('Starting backend2 first...');
+      const backend2Result = await this.startBackend('backend2', './backend2/Backend2.exe');
+      
+      if (!backend2Result.success) {
+        throw new Error('Failed to start backend2');
+      }
 
-      if (!backend1Result.success || !backend2Result.success) {
-        throw new Error('Failed to start one or more backends');
+      // Now start backend1 with backend2's port as environment variable
+      console.log('Starting backend1 with backend2 port info...');
+      const backend1Result = await this.startBackend('backend1', './backend1/Backend1.exe', {
+        BACKEND2_PORT: backend2Result.port.toString(),
+        BACKEND2_URL: `http://localhost:${backend2Result.port}`
+      });
+
+      if (!backend1Result.success) {
+        throw new Error('Failed to start backend1');
       }
 
       this.ports = {
@@ -49,9 +58,10 @@ class BackendManager {
    * Start a single backend process
    * @param {string} name - Backend name
    * @param {string} executablePath - Path to the .exe file
+   * @param {Object} additionalEnvVars - Additional environment variables
    * @returns {Promise<Object>} - Result with success status and port
    */
-  async startBackend(name, executablePath) {
+  async startBackend(name, executablePath, additionalEnvVars = {}) {
     return new Promise((resolve, reject) => {
       // Check if executable exists
       if (!fs.existsSync(executablePath)) {
@@ -63,9 +73,23 @@ class BackendManager {
 
       console.log(`Starting ${name}...`);
 
-      // Start process with port 0 (OS will assign available port)
-      const process = spawn(executablePath, ['--urls', 'http://localhost:0'], {
+      // Prepare environment variables
+      const env = {
+        ...process.env,
+        ...additionalEnvVars,
+        // Standard ASP.NET Core environment variables
+        ASPNETCORE_ENVIRONMENT: 'Production',
+        DOTNET_ENVIRONMENT: 'Production',
+        // Use ASPNETCORE_URLS for automatic port allocation
+        ASPNETCORE_URLS: 'http://localhost:0'  // Port 0 = OS assigns available port
+      };
+
+      console.log(`[${name}] Environment variables:`, { ...additionalEnvVars, ASPNETCORE_URLS: env.ASPNETCORE_URLS });
+
+      // Start process without --urls argument (will use ASPNETCORE_URLS env var)
+      const process = spawn(executablePath, [], {
         cwd: path.dirname(executablePath),
+        env: env,
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
