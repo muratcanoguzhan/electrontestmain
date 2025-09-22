@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth Multi-Instance App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .header .subtitle {
+      margin: 5px 0 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .main-content {
+      padding: 30px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e1e5e9;
+    }
+
+    .card h2 {
+      margin: 0 0 15px;
+      font-size: 18px;
+      color: #333;
+    }
+
+    .card p {
+      margin: 0 0 15px;
+      line-height: 1.5;
+      color: #666;
+    }
+
+    .file-info {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 15px 0;
+      font-family: monospace;
+      font-size: 14px;
+    }
+
+    .file-info strong {
+      color: #495057;
+    }
+
+    .button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .button.secondary {
+      background: #6c757d;
+    }
+
+    .button.danger {
+      background: #dc3545;
+    }
+
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #343a40;
+      color: white;
+      padding: 10px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-authenticated {
+      background: #28a745;
+    }
+
+    .status-unauthenticated {
+      background: #dc3545;
+    }
+
+    .status-authenticating {
+      background: #ffc107;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 6px;
+      color: white;
+      font-weight: 500;
+      z-index: 1000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .notification.show {
+      transform: translateX(0);
+    }
+
+    .notification.success {
+      background: #28a745;
+    }
+
+    .notification.error {
+      background: #dc3545;
+    }
+
+    .notification.info {
+      background: #17a2b8;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .feature-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e1e5e9;
+      text-align: center;
+    }
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .feature-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .feature-card p {
+      margin: 0;
+      font-size: 14px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 id="appTitle">OAuth Multi-Instance App</h1>
+    <div class="subtitle" id="appSubtitle">Ready to use</div>
+  </div>
+
+  <div class="main-content">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button id="openFileBtn" class="button secondary">📁 Open File</button>
+        <button id="newWindowBtn" class="button secondary">🔗 New Window</button>
+      </div>
+      <div class="toolbar-right">
+        <button id="updateSomethingBtn" class="button">🔄 Update Something</button>
+        <button id="logoutBtn" class="button danger">🚪 Logout</button>
+      </div>
+    </div>
+
+    <div class="card" id="fileCard" style="display: none;">
+      <h2>📄 Current File</h2>
+      <div class="file-info" id="fileInfo">
+        <strong>File:</strong> <span id="fileName">No file selected</span><br>
+        <strong>Path:</strong> <span id="filePath">-</span><br>
+        <strong>Size:</strong> <span id="fileSize">-</span>
+      </div>
+      <p>This instance is dedicated to the file shown above. You can open additional files in new instances.</p>
+    </div>
+
+    <div class="card">
+      <h2>🔐 Authentication Features</h2>
+      <p>This application demonstrates secure OAuth authentication with PKCE (Proof Key for Code Exchange) using your system browser.</p>
+      
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>External Browser Auth</h3>
+          <p>Uses your system browser for secure OAuth login, not embedded webviews</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>PKCE Security</h3>
+          <p>Implements PKCE for enhanced security in the OAuth flow</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🗝️</div>
+          <h3>Secure Storage</h3>
+          <p>Tokens are stored securely in your system's credential store</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Auto Refresh</h3>
+          <p>Access tokens are automatically refreshed when needed</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📁 Multi-Instance File Handling</h2>
+      <p>This application supports opening multiple instances for different files:</p>
+      <ul>
+        <li><strong>Windows/Linux:</strong> Each .mydoc file opens in a separate process</li>
+        <li><strong>macOS:</strong> Each file opens in a separate window within the same process</li>
+        <li><strong>Authentication:</strong> Files opened while unauthenticated will prompt for login first</li>
+      </ul>
+      
+      <button id="createTestFileBtn" class="button secondary">📝 Create Test .mydoc File</button>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Application Actions</h2>
+      <p>The "Update Something" action in the menu demonstrates forced re-authentication for sensitive operations.</p>
+      
+      <div id="actionResult" class="file-info" style="display: none;">
+        <strong>Last Action:</strong> <span id="lastAction">None</span><br>
+        <strong>Timestamp:</strong> <span id="actionTime">-</span><br>
+        <strong>Status:</strong> <span id="actionStatus">-</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-indicator">
+      <div id="statusDot" class="status-dot status-authenticated"></div>
+      <span id="statusText">Authenticated</span>
+    </div>
+    <div id="statusInfo">
+      Platform: <span id="platformInfo"></span> | 
+      Instance ID: <span id="instanceId"></span>
+    </div>
+  </div>
+
+  <div id="notification" class="notification"></div>
+
+  <script>
+    class MainAppManager {
+      constructor() {
+        this.currentFile = null;
+        this.instanceId = this.generateInstanceId();
+        
+        this.setupEventListeners();
+        this.updatePlatformInfo();
+        this.checkAuthStatus();
+      }
+
+      generateInstanceId() {
+        return Math.random().toString(36).substr(2, 8);
+      }
+
+      setupEventListeners() {
+        // Button event listeners
+        document.getElementById('openFileBtn').addEventListener('click', () => {
+          this.openFileDialog();
+        });
+
+        document.getElementById('newWindowBtn').addEventListener('click', () => {
+          this.openNewWindow();
+        });
+
+        document.getElementById('updateSomethingBtn').addEventListener('click', () => {
+          this.triggerUpdateAction();
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+          this.logout();
+        });
+
+        document.getElementById('createTestFileBtn').addEventListener('click', () => {
+          this.createTestFile();
+        });
+
+        // IPC event listeners
+        window.electronAPI.file.onOpen((event, filePath) => {
+          this.handleFileOpen(filePath);
+        });
+
+        window.electronAPI.menu.onOpenFile(() => {
+          this.openFileDialog();
+        });
+
+        window.electronAPI.action.onUpdateSomething(() => {
+          this.handleUpdateSomethingAction();
+        });
+
+        window.electronAPI.auth.onStatusChanged((event, status) => {
+          this.updateAuthStatus(status);
+        });
+
+        // Cleanup on window unload
+        window.addEventListener('beforeunload', () => {
+          window.electronAPI.removeAllListeners();
+        });
+      }
+
+      updatePlatformInfo() {
+        document.getElementById('platformInfo').textContent = window.electronAPI.platform;
+        document.getElementById('instanceId').textContent = this.instanceId;
+      }
+
+      async checkAuthStatus() {
+        try {
+          const status = await window.electronAPI.auth.getStatus();
+          this.updateAuthStatus(status);
+        } catch (error) {
+          console.error('Error checking auth status:', error);
+          this.updateAuthStatus({ state: 'unauthenticated', isAuthenticated: false });
+        }
+      }
+
+      updateAuthStatus(status) {
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        
+        statusDot.className = `status-dot status-${status.state}`;
+        statusText.textContent = status.isAuthenticated ? 'Authenticated' : 
+                                 status.state === 'authenticating' ? 'Authenticating...' : 'Not Authenticated';
+      }
+
+      handleFileOpen(filePath) {
+        this.currentFile = filePath;
+        this.updateFileDisplay();
+        this.updateWindowTitle();
+        this.showNotification(`File opened: ${filePath.split(/[/\\]/).pop()}`, 'success');
+      }
+
+      updateFileDisplay() {
+        const fileCard = document.getElementById('fileCard');
+        const fileName = document.getElementById('fileName');
+        const filePathEl = document.getElementById('filePath');
+        const fileSize = document.getElementById('fileSize');
+
+        if (this.currentFile) {
+          fileCard.style.display = 'block';
+          fileName.textContent = this.currentFile.split(/[/\\]/).pop();
+          filePathEl.textContent = this.currentFile;
+          
+          // Try to get file stats (this would need to be implemented via IPC if needed)
+          fileSize.textContent = 'Unknown';
+        } else {
+          fileCard.style.display = 'none';
+        }
+      }
+
+      updateWindowTitle() {
+        const appTitle = document.getElementById('appTitle');
+        const appSubtitle = document.getElementById('appSubtitle');
+        
+        if (this.currentFile) {
+          const fileName = this.currentFile.split(/[/\\]/).pop();
+          appTitle.textContent = `OAuth Multi-Instance App - ${fileName}`;
+          appSubtitle.textContent = `Instance ${this.instanceId} • File loaded`;
+        } else {
+          appTitle.textContent = 'OAuth Multi-Instance App';
+          appSubtitle.textContent = `Instance ${this.instanceId} • Ready to use`;
+        }
+      }
+
+      openFileDialog() {
+        // In a real app, this would open a file dialog
+        // For demo purposes, we'll simulate file selection
+        this.showNotification('File dialog would open here (not implemented in demo)', 'info');
+      }
+
+      openNewWindow() {
+        // This would typically trigger the main process to create a new window
+        this.showNotification('New window functionality would be triggered here', 'info');
+      }
+
+      async triggerUpdateAction() {
+        try {
+          // This will trigger forced re-authentication in the main process
+          const result = await window.electronAPI.auth.startForcedLogin();
+          if (result.success) {
+            this.showNotification('Re-authentication started for Update Something action', 'info');
+          } else {
+            this.showNotification('Failed to start re-authentication', 'error');
+          }
+        } catch (error) {
+          console.error('Error triggering update action:', error);
+          this.showNotification('Error triggering update action', 'error');
+        }
+      }
+
+      handleUpdateSomethingAction() {
+        // This is called after successful re-authentication
+        const actionResult = document.getElementById('actionResult');
+        const lastAction = document.getElementById('lastAction');
+        const actionTime = document.getElementById('actionTime');
+        const actionStatus = document.getElementById('actionStatus');
+
+        lastAction.textContent = 'Update Something';
+        actionTime.textContent = new Date().toLocaleString();
+        actionStatus.textContent = 'Completed successfully after re-authentication';
+        
+        actionResult.style.display = 'block';
+        this.showNotification('Update Something action completed!', 'success');
+      }
+
+      async logout() {
+        try {
+          const result = await window.electronAPI.auth.logout();
+          if (result.success) {
+            this.showNotification('Logged out successfully', 'success');
+          } else {
+            this.showNotification('Logout failed', 'error');
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+          this.showNotification('Logout error', 'error');
+        }
+      }
+
+      createTestFile() {
+        // Simulate creating a test .mydoc file
+        const fileName = `test-${Date.now()}.mydoc`;
+        const content = `# Test MyDoc File\n\nCreated at: ${new Date().toISOString()}\nInstance: ${this.instanceId}\n\nThis is a test .mydoc file that can be opened by the application.`;
+        
+        // In a real implementation, this would create an actual file
+        // For demo purposes, we'll just show what would happen
+        this.showNotification(`Would create file: ${fileName}`, 'info');
+        
+        // Simulate opening the file in this instance
+        setTimeout(() => {
+          const fakePath = `/path/to/${fileName}`;
+          this.handleFileOpen(fakePath);
+        }, 1000);
+      }
+
+      showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        
+        // Show notification
+        setTimeout(() => notification.classList.add('show'), 100);
+        
+        // Hide notification after 4 seconds
+        setTimeout(() => {
+          notification.classList.remove('show');
+        }, 4000);
+      }
+    }
+
+    // Initialize main app manager when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      new MainAppManager();
+    });
+  </script>
+</body>
+</html>
