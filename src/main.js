@@ -1,10 +1,12 @@
 const { app, protocol } = require('electron');
 const path = require('path');
 const AuthenticationManager = require('./auth-manager');
+const BackendManager = require('./backend-manager');
 
 // Prevent multiple instances on Windows/Linux for the same file
 // But allow multiple instances for different files
 let authManager;
+let backendManager;
 let launchedWithFile = null;
 
 // Handle file associations and protocol on startup
@@ -90,34 +92,61 @@ function setupAppEventHandlers() {
   app.whenReady().then(async () => {
     console.log('App is ready');
     
-    // Initialize authentication manager
-    authManager = new AuthenticationManager();
-    
-    // Set up macOS protocol handler
-    if (process.platform === 'darwin') {
-      authManager.setupMacOSProtocolHandler();
-    }
+    try {
+      // Start .NET backends with OS-assigned ports (no conflicts!)
+      backendManager = new BackendManager();
+      const ports = await backendManager.startBackends();
+      
+      // Initialize authentication manager with backend ports
+      authManager = new AuthenticationManager();
+      
+      // Store ports for later use
+      authManager.backendPorts = ports;
+      
+      // Set up macOS protocol handler
+      if (process.platform === 'darwin') {
+        authManager.setupMacOSProtocolHandler();
+      }
 
-    // Initialize authentication state
-    const authState = await authManager.initialize();
-    
-    if (launchedWithFile) {
-      // App was launched with a file
-      console.log('Handling file open on startup:', launchedWithFile);
-      await authManager.handleFileOpen(launchedWithFile);
-    } else if (authState === 'authenticated') {
-      // User is already authenticated, show main window
-      authManager.openMainWindow();
-    } else {
-      // User needs to authenticate, show login window
-      authManager.showLoginWindow();
+      // Initialize authentication state
+      const authState = await authManager.initialize();
+      
+      if (launchedWithFile) {
+        // App was launched with a file
+        console.log('Handling file open on startup:', launchedWithFile);
+        await authManager.handleFileOpen(launchedWithFile);
+      } else if (authState === 'authenticated') {
+        // User is already authenticated, show main window
+        authManager.openMainWindow();
+      } else {
+        // User needs to authenticate, show login window
+        authManager.showLoginWindow();
+      }
+    } catch (error) {
+      console.error('Failed to start application:', error.message);
+      
+      // Show error dialog and quit
+      const { dialog } = require('electron');
+      dialog.showErrorBox(
+        'Startup Error',
+        `Failed to start the application: ${error.message}\n\nPlease ensure your .NET backend applications are available.`
+      );
+      
+      app.quit();
     }
   });
 
   app.on('window-all-closed', () => {
     // On macOS, keep app running even when all windows are closed
     if (process.platform !== 'darwin') {
-      app.quit();
+      // Shutdown backends before quitting
+      if (backendManager) {
+        backendManager.shutdown().then(() => {
+          app.quit();
+        });
+      } else {
+        app.quit();
+      }
     }
   });
 
@@ -153,8 +182,13 @@ function setupAppEventHandlers() {
   }
 
   // Handle before-quit to clean up
-  app.on('before-quit', () => {
-    console.log('App is quitting...');
+  app.on('before-quit', async (event) => {
+    if (backendManager) {
+      console.log('Shutting down backends...');
+      event.preventDefault();
+      await backendManager.shutdown();
+      app.quit();
+    }
   });
 }
 
